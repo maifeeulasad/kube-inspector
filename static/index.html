@@ -1,0 +1,922 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+
+        .nav-tab:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 8px 25px rgba(245, 87, 108, 0.4);
+        }
+
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .namespace-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .namespace-selector select {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            background: white;
+            min-width: 200px;
+            transition: all 0.3s ease;
+        }
+
+        .namespace-selector select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .resource-grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .resource-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform: scale(1);
+        }
+
+        .resource-card:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .resource-card h3 {
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .resource-card .count {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .table-container {
+            margin-top: 30px;
+            overflow-x: auto;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s ease;
+        }
+
+        tr:hover td {
+            background-color: #f8f9ff;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status.running, .status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.failed, .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+            font-size: 1.1em;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .close {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .close:hover {
+            background: #c0392b;
+            transform: rotate(90deg);
+        }
+
+        .logs-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .detail-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            color: #555;
+            font-family: monospace;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+
+        .clickable-row {
+            cursor: pointer;
+        }
+
+        .clickable-row:hover {
+            background-color: #f0f8ff !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .nav-tabs {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .nav-tab {
+                width: 100%;
+                max-width: 300px;
+                margin: 5px 0;
+            }
+            
+            .resource-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Kubernetes Dashboard</h1>
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+                <button class="nav-tab" onclick="showTab('pods')">Pods</button>
+                <button class="nav-tab" onclick="showTab('services')">Services</button>
+                <button class="nav-tab" onclick="showTab('deployments')">Deployments</button>
+                <button class="nav-tab" onclick="showTab('configmaps')">ConfigMaps</button>
+                <button class="nav-tab" onclick="showTab('networkpolicies')">Network Policies</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="namespace-selector">
+                <label for="namespaceSelect"><strong>Namespace:</strong></label>
+                <select id="namespaceSelect" onchange="onNamespaceChange()">
+                    <option value="">Loading namespaces...</option>
+                </select>
+            </div>
+
+            <div id="overview" class="tab-content">
+                <h2>Cluster Overview</h2>
+                <div class="resource-grid" id="overviewGrid">
+                    <div class="loading">Loading cluster overview...</div>
+                </div>
+            </div>
+
+            <div id="pods" class="tab-content" style="display: none;">
+                <h2>Pods</h2>
+                <div class="table-container">
+                    <table id="podsTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Ready</th>
+                                <th>Restarts</th>
+                                <th>Age</th>
+                                <th>Node</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="6" class="loading">Loading pods...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="services" class="tab-content" style="display: none;">
+                <h2>Services</h2>
+                <div class="table-container">
+                    <table id="servicesTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Cluster IP</th>
+                                <th>External IP</th>
+                                <th>Ports</th>
+                                <th>Age</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="6" class="loading">Loading services...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="deployments" class="tab-content" style="display: none;">
+                <h2>Deployments</h2>
+                <div class="table-container">
+                    <table id="deploymentsTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Ready</th>
+                                <th>Up-to-date</th>
+                                <th>Available</th>
+                                <th>Age</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5" class="loading">Loading deployments...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="configmaps" class="tab-content" style="display: none;">
+                <h2>ConfigMaps</h2>
+                <div class="table-container">
+                    <table id="configmapsTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Data Keys</th>
+                                <th>Age</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="loading">Loading configmaps...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="networkpolicies" class="tab-content" style="display: none;">
+                <h2>Network Policies</h2>
+                <div class="table-container">
+                    <table id="networkpoliciesTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Pod Selector</th>
+                                <th>Ingress Rules</th>
+                                <th>Egress Rules</th>
+                                <th>Age</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5" class="loading">Loading network policies...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pod Details Modal -->
+    <div id="podModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="podModalTitle">Pod Details</h2>
+                <button class="close" onclick="closePodModal()">&times;</button>
+            </div>
+            <div id="podModalContent">
+                <div class="loading">Loading pod details...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pod Logs Modal -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="logsModalTitle">Pod Logs</h2>
+                <button class="close" onclick="closeLogsModal()">&times;</button>
+            </div>
+            <div class="logs-container" id="logsContent">
+                <div class="loading">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentNamespace = '';
+        let namespaces = [];
+
+        // Initialize the dashboard
+        async function init() {
+            await loadNamespaces();
+            showTab('overview');
+        }
+
+        // Load all namespaces
+        async function loadNamespaces() {
+            try {
+                const response = await fetch('/api/namespaces');
+                namespaces = await response.json();
+                
+                const select = document.getElementById('namespaceSelect');
+                select.innerHTML = '';
+                
+                namespaces.forEach(ns => {
+                    const option = document.createElement('option');
+                    option.value = ns.name;
+                    option.textContent = ns.name;
+                    select.appendChild(option);
+                });
+
+                if (namespaces.length > 0) {
+                    currentNamespace = namespaces[0].name;
+                    select.value = currentNamespace;
+                    await loadCurrentTabData();
+                }
+            } catch (error) {
+                console.error('Error loading namespaces:', error);
+                document.getElementById('namespaceSelect').innerHTML = '<option value="">Error loading namespaces</option>';
+            }
+        }
+
+        // Handle namespace change
+        async function onNamespaceChange() {
+            const select = document.getElementById('namespaceSelect');
+            currentNamespace = select.value;
+            await loadCurrentTabData();
+        }
+
+        // Show tab and load its data
+        async function showTab(tabName) {
+            // Update active tab
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Hide all content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+
+            // Show selected content
+            document.getElementById(tabName).style.display = 'block';
+
+            // Load data for the tab
+            await loadTabData(tabName);
+        }
+
+        // Load current tab data
+        async function loadCurrentTabData() {
+            const activeTab = document.querySelector('.nav-tab.active');
+            const tabName = activeTab.textContent.toLowerCase().replace(' ', '');
+            await loadTabData(tabName);
+        }
+
+        // Load data for specific tab
+        async function loadTabData(tabName) {
+            if (!currentNamespace && tabName !== 'overview') return;
+
+            switch (tabName) {
+                case 'overview':
+                    await loadOverview();
+                    break;
+                case 'pods':
+                    await loadPods();
+                    break;
+                case 'services':
+                    await loadServices();
+                    break;
+                case 'deployments':
+                    await loadDeployments();
+                    break;
+                case 'configmaps':
+                    await loadConfigMaps();
+                    break;
+                case 'networkpolicies':
+                    await loadNetworkPolicies();
+                    break;
+            }
+        }
+
+        // Load overview data
+        async function loadOverview() {
+            const grid = document.getElementById('overviewGrid');
+            grid.innerHTML = '<div class="loading">Loading cluster overview...</div>';
+
+            try {
+                const promises = [
+                    fetch(`/api/pods/${currentNamespace || 'default'}`).then(r => r.json()),
+                    fetch(`/api/services/${currentNamespace || 'default'}`).then(r => r.json()),
+                    fetch(`/api/deployments/${currentNamespace || 'default'}`).then(r => r.json()),
+                    fetch(`/api/configmaps/${currentNamespace || 'default'}`).then(r => r.json())
+                ];
+
+                const [pods, services, deployments, configmaps] = await Promise.all(promises);
+
+                const runningPods = pods.filter(p => p.phase === 'Running').length;
+                const totalPods = pods.length;
+
+                grid.innerHTML = `
+                    <div class="resource-card" onclick="showTab('pods')">
+                        <h3>📦 Pods</h3>
+                        <div class="count">${runningPods}/${totalPods}</div>
+                        <p>Running/Total</p>
+                    </div>
+                    <div class="resource-card" onclick="showTab('services')">
+                        <h3>🌐 Services</h3>
+                        <div class="count">${services.length}</div>
+                        <p>Total Services</p>
+                    </div>
+                    <div class="resource-card" onclick="showTab('deployments')">
+                        <h3>🚀 Deployments</h3>
+                        <div class="count">${deployments.length}</div>
+                        <p>Total Deployments</p>
+                    </div>
+                    <div class="resource-card" onclick="showTab('configmaps')">
+                        <h3>⚙️ ConfigMaps</h3>
+                        <div class="count">${configmaps.length}</div>
+                        <p>Total ConfigMaps</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading overview:', error);
+                grid.innerHTML = '<div class="error">Error loading overview data</div>';
+            }
+        }
+
+        // Load pods data
+        async function loadPods() {
+            const tbody = document.querySelector('#podsTable tbody');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading pods...</td></tr>';
+
+            try {
+                const response = await fetch(`/api/pods/${currentNamespace}`);
+                const pods = await response.json();
+
+                if (pods.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="loading">No pods found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = pods.map(pod => `
+                    <tr class="clickable-row" onclick="showPodDetails('${pod.namespace}', '${pod.name}')">
+                        <td>${pod.name}</td>
+                        <td><span class="status ${pod.phase.toLowerCase()}">${pod.phase}</span></td>
+                        <td>${pod.ready}</td>
+                        <td>${pod.restarts}</td>
+                        <td>${formatAge(pod.created_at)}</td>
+                        <td>${pod.node_name || 'N/A'}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading pods:', error);
+                tbody.innerHTML = '<tr><td colspan="6" class="error">Error loading pods</td></tr>';
+            }
+        }
+
+        // Load services data
+        async function loadServices() {
+            const tbody = document.querySelector('#servicesTable tbody');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading services...</td></tr>';
+
+            try {
+                const response = await fetch(`/api/services/${currentNamespace}`);
+                const services = await response.json();
+
+                if (services.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="loading">No services found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = services.map(service => `
+                    <tr>
+                        <td>${service.name}</td>
+                        <td>${service.service_type}</td>
+                        <td>${service.cluster_ip}</td>
+                        <td>${service.external_ip}</td>
+                        <td>${service.ports}</td>
+                        <td>${formatAge(service.created_at)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading services:', error);
+                tbody.innerHTML = '<tr><td colspan="6" class="error">Error loading services</td></tr>';
+            }
+        }
+
+        // Load deployments data
+        async function loadDeployments() {
+            const tbody = document.querySelector('#deploymentsTable tbody');
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading deployments...</td></tr>';
+
+            try {
+                const response = await fetch(`/api/deployments/${currentNamespace}`);
+                const deployments = await response.json();
+
+                if (deployments.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="loading">No deployments found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = deployments.map(dep => `
+                    <tr>
+                        <td>${dep.name}</td>
+                        <td>${dep.ready_replicas}/${dep.replicas}</td>
+                        <td>${dep.updated_replicas}</td>
+                        <td>${dep.available_replicas}</td>
+                        <td>${formatAge(dep.created_at)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading deployments:', error);
+                tbody.innerHTML = '<tr><td colspan="5" class="error">Error loading deployments</td></tr>';
+            }
+        }
+
+        // Load configmaps data
+        async function loadConfigMaps() {
+            const tbody = document.querySelector('#configmapsTable tbody');
+            tbody.innerHTML = '<tr><td colspan="3" class="loading">Loading configmaps...</td></tr>';
+
+            try {
+                const response = await fetch(`/api/configmaps/${currentNamespace}`);
+                const configmaps = await response.json();
+
+                if (configmaps.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="loading">No configmaps found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = configmaps.map(cm => `
+                    <tr>
+                        <td>${cm.name}</td>
+                        <td>${cm.data_keys.join(', ') || 'None'}</td>
+                        <td>${formatAge(cm.created_at)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading configmaps:', error);
+                tbody.innerHTML = '<tr><td colspan="3" class="error">Error loading configmaps</td></tr>';
+            }
+        }
+
+        // Load network policies data
+        async function loadNetworkPolicies() {
+            const tbody = document.querySelector('#networkpoliciesTable tbody');
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading network policies...</td></tr>';
+
+            try {
+                const response = await fetch(`/api/networkpolicies/${currentNamespace}`);
+                const policies = await response.json();
+
+                if (policies.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="loading">No network policies found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = policies.map(np => `
+                    <tr>
+                        <td>${np.name}</td>
+                        <td>${Object.entries(np.pod_selector).map(([k,v]) => `${k}=${v}`).join(', ') || 'All pods'}</td>
+                        <td>${np.ingress_rules}</td>
+                        <td>${np.egress_rules}</td>
+                        <td>${formatAge(np.created_at)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading network policies:', error);
+                tbody.innerHTML = '<tr><td colspan="5" class="error">Error loading network policies</td></tr>';
+            }
+        }
+
+        // Show pod details modal
+        async function showPodDetails(namespace, podName) {
+            const modal = document.getElementById('podModal');
+            const title = document.getElementById('podModalTitle');
+            const content = document.getElementById('podModalContent');
+            
+            title.textContent = `Pod: ${podName}`;
+            content.innerHTML = '<div class="loading">Loading pod details...</div>';
+            modal.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/pod/${namespace}/${podName}`);
+                const pod = await response.json();
+
+                if (pod.error) {
+                    content.innerHTML = `<div class="error">${pod.error}</div>`;
+                    return;
+                }
+
+                content.innerHTML = `
+                    <div class="detail-item">
+                        <div class="detail-label">Name</div>
+                        <div class="detail-value">${pod.name}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Namespace</div>
+                        <div class="detail-value">${pod.namespace}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value"><span class="status ${pod.status.toLowerCase()}">${pod.status}</span></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Node</div>
+                        <div class="detail-value">${pod.node_name || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Labels</div>
+                        <div class="detail-value">
+                            ${Object.entries(pod.labels).map(([k,v]) => `<span class="tag">${k}=${v}</span>`).join(' ') || 'None'}
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Containers</div>
+                        <div class="detail-value">
+                            ${pod.containers.map(c => `
+                                <div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                                    <strong>${c.name}</strong><br>
+                                    Image: ${c.image}<br>
+                                    Ports: ${c.ports.join(', ') || 'None'}<br>
+                                    Resources: ${c.resources || 'None'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Created</div>
+                        <div class="detail-value">${formatAge(pod.created_at)}</div>
+                    </div>
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button onclick="showPodLogs('${namespace}', '${podName}')" 
+                                style="background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 25px; cursor: pointer; font-weight: 600;">
+                            View Logs
+                        </button>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading pod details:', error);
+                content.innerHTML = '<div class="error">Error loading pod details</div>';
+            }
+        }
+
+        // Show pod logs modal
+        async function showPodLogs(namespace, podName) {
+            const modal = document.getElementById('logsModal');
+            const title = document.getElementById('logsModalTitle');
+            const content = document.getElementById('logsContent');
+            
+            title.textContent = `Logs: ${podName}`;
+            content.innerHTML = '<div class="loading">Loading logs...</div>';
+            modal.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/pod/${namespace}/${podName}/logs`);
+                const logs = await response.json();
+                
+                content.textContent = logs.logs || 'No logs available';
+            } catch (error) {
+                console.error('Error loading pod logs:', error);
+                content.innerHTML = '<div class="error">Error loading logs</div>';
+            }
+        }
+
+        // Close pod modal
+        function closePodModal() {
+            document.getElementById('podModal').style.display = 'none';
+        }
+
+        // Close logs modal
+        function closeLogsModal() {
+            document.getElementById('logsModal').style.display = 'none';
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const podModal = document.getElementById('podModal');
+            const logsModal = document.getElementById('logsModal');
+            
+            if (event.target == podModal) {
+                podModal.style.display = 'none';
+            }
+            if (event.target == logsModal) {
+                logsModal.style.display = 'none';
+            }
+        }
+
+        // Format age/timestamp
+        function formatAge(timestamp) {
+            if (!timestamp) return 'Unknown';
+            
+            try {
+                const now = new Date();
+                const created = new Date(timestamp);
+                const diff = now - created;
+                
+                const seconds = Math.floor(diff / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                const days = Math.floor(hours / 24);
+                
+                if (days > 0) return `${days}d`;
+                if (hours > 0) return `${hours}h`;
+                if (minutes > 0) return `${minutes}m`;
+                return `${seconds}s`;
+            } catch {
+                return timestamp;
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
